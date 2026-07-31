@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import dictionary, scrapbook
+from app.api import dictionary, naming, scrapbook, tables
 from app.storage.db import get_connection, init_db
 
 
@@ -27,6 +27,8 @@ app.add_middleware(
 
 app.include_router(dictionary.router)
 app.include_router(scrapbook.router)
+app.include_router(naming.router)
+app.include_router(tables.router)
 
 
 @app.get("/health")

@@ -2,6 +2,7 @@ fastapi>=0.141,<0.142
 uvicorn[standard]>=0.52,<0.53
 pydantic>=2.13,<3
 pyyaml>=6.0,<7
+python-multipart>=0.0.32,<0.1  # UploadFile(F-106 커스텀 사전 업로드)에 필요
 
 # dev/test
 pytest>=9.1,<10

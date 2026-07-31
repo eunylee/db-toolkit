@@ -13,6 +13,9 @@ engine/__pycache__/
 *.db-journal
 engine/app/data/runtime/
 
+# 개발용 기본 워크스페이스(실사용 시 클라이언트 프로젝트의 자체 git으로 대체될 자리)
+engine/app/data/workspace/
+
 # node / frontend
 ui/node_modules/
 ui/dist/

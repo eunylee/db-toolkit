@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import dictionary
+from app.api.deps import get_db
 from app.main import app
 from app.storage.db import get_connection, init_db
 
@@ -16,7 +16,7 @@ def client(tmp_path):
         finally:
             conn.close()
 
-    app.dependency_overrides[dictionary._db] = _override_db
+    app.dependency_overrides[get_db] = _override_db
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
