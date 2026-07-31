@@ -1,0 +1,18 @@
+.DS_Store
+.claude/settings.local.json
+
+# python
+engine/.venv/
+engine/__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# local runtime db (regenerated from seed data, not source of truth)
+*.db
+*.db-journal
+engine/app/data/runtime/
+
+# node / frontend
+ui/node_modules/
+ui/dist/
