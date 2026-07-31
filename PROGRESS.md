@@ -6,7 +6,9 @@
 - 구조: `engine/`(FastAPI, 로직) ↔ `ui/`(React+TS, 화면 전용, API만 호출). Tauri 패키징은 보류(CLAUDE.md 방침).
 - `engine/app/api/*`: FastAPI 라우터(얇은 계층, HTTP만 담당) / `engine/app/core/<feature>/*`: 프레임워크 비의존 순수 로직(단위테스트 대상) / `engine/app/models/*`: pydantic 스키마 / `engine/app/storage/*`: SQLite(db.py)+YAML(yaml_store.py).
 - SQLite = 로컬 조회/캐시 인덱스(재생성 가능, git 비대상, `.gitignore`). YAML = Git diff 대상 선언형 모델 원본(추후 유닛에서 도입).
-- Python: venv+pip (`engine/.venv`, `engine/requirements.txt`). Node: npm+Vite(예정).
+- Python: venv+pip (`engine/.venv`, `engine/requirements.txt`). Node: npm+Vite (`ui/`, react-ts 템플릿, vitest+RTL).
+- `ui/src` 구조: `shared/api/client.ts`(공용 fetch 래퍼, 화면은 이걸로만 엔진 호출) / `features/<feature>/{model,ui,api}`(model=순수 로직·단위테스트, ui=React 컴포넌트, api=엔진 호출). 새 기능도 이 3분할 패턴 반복.
+- F-102 스크랩북: 클립보드 paste 캡처(브라우저에서만 가능)만 화면이 하고, 실제 TSV 파싱은 `POST /scrapbook/parse`(엔진)에서 수행 → 엔진/화면 분리 원칙 준수. 파싱은 stdlib `csv`를 tab 구분자로 재사용(따옴표로 감싼 셀 안의 탭/개행도 처리됨).
 - sqlite3 connection은 `check_same_thread=False`로 오픈(FastAPI가 sync 의존성/async 핸들러를 다른 스레드에서 실행할 수 있어서 필요; 1인 로컬 툴이라 동시쓰기 경합 없음).
 - F-101 표준사전 시드: 사용자가 제공한 실제 행정안전부 공공데이터 공통표준용어 CSV(2026-07-31, 13,176행) → `engine/app/data/dictionary/standard_terms.csv`에 번들.
 - F-103 방향(검토보고서 권고 반영): "완전 자동 합성"이 아니라 사전 최대일치(forward maximum matching) 기반 "자동 추천 + 사용자 확정" 구조로 간다. 표준 CSV에는 개별 단어(고객/주문 등) 단위 사전이 없고 복합 "용어" 단위만 있어, 미등록 구간은 세그먼트로 남겨 사용자가 채우게 함.
@@ -22,9 +24,16 @@
   - `api/dictionary.py`: POST /dictionary/import/standard, POST /dictionary/import/custom, GET /dictionary/terms, GET /dictionary/lookup, GET /dictionary/segment
   - 테스트 35개 (domain_code, importer, repository, matcher, api) + 실서버 curl 스모크 확인(13,168건 임포트/조회/세그먼트 정상)
   - 전체 테스트: `cd engine && source .venv/bin/activate && python -m pytest -q` → 39 passed
+- [x] Unit 2: F-102 엑셀/노션 스크랩북 + UI 스캐폴드 최초 연결
+  - `core/scrapbook/parser.py`: TSV 그리드 파서 (ragged 행 padding, 꼬리 빈행 제거, 따옴표 셀 처리) / `api/scrapbook.py`: POST /scrapbook/parse
+  - 백엔드 테스트 11개 추가 (엣지케이스 포함) → 전체 50 passed
+  - `ui/`: Vite+React+TS 스캐폴드, `features/scrapbook/{model/gridMerge.ts, api/scrapbookApi.ts, ui/ScrapbookGrid.tsx}` — 임의 셀(anchor)에 붙여넣으면 엔진 API로 파싱 후 그리드에 병합(필요시 행/열 자동 확장)
+  - 프런트 테스트 14개 (vitest+RTL) 통과, `tsc -b` 통과
+  - 실브라우저(Chrome) E2E 확인: 클립보드 paste 이벤트 → 엔진 파싱 → 포커스된 셀 기준 정확히 병합됨, 콘솔 에러 없음
+  - 실행: 엔진(`uvicorn app.main:app --reload --port 8000`) + `cd ui && npm run dev` (기본 5173, CORS 허용됨)
+  - 프런트 테스트: `cd ui && npm run test` / 타입체크: `npx tsc -b`
 
 ## 다음 (우선순위 순, 기능정의서 6장 기준)
-- [ ] Unit 2: F-102 엑셀/노션 스크랩북 파싱 (그리드 Copy&Paste 파싱) + UI 스캐폴드 최초 연결(Vite+React+TS)
 - [ ] Unit 3: F-103 물리명 합성 UI/린터 (Unit1 matcher를 실제 화면과 연결, 실시간 경고)
 - [ ] Unit 4: F-104a 대리키 전환 + JPA 코드 추출
 - [ ] Unit 5: F-105 레거시 DDL 역엔지니어링 + 폴백 UI

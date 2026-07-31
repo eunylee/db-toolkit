@@ -1,0 +1,27 @@
+.scrapbook__toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.scrapbook__error {
+  color: #d33;
+  font-size: 0.85rem;
+}
+
+.scrapbook__table {
+  border-collapse: collapse;
+}
+
+.scrapbook__table td {
+  border: 1px solid #ccc;
+  padding: 0;
+}
+
+.scrapbook__table input {
+  width: 120px;
+  padding: 4px 6px;
+  border: none;
+  outline-offset: -2px;
+  font-size: 0.9rem;
+}
