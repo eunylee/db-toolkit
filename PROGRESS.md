@@ -39,5 +39,12 @@ python -m pytest -q                          # 테스트
 uvicorn app.main:app --reload --port 8000    # 서버 (UI 개발서버는 5173 가정, CORS 허용됨)
 ```
 
+## Git 원격
+- origin: https://github.com/eunylee/db-toolkit.git (main 브랜치, 푸시 완료)
+- ⚠️ 이 macOS 계정은 `~/.config`, `~/.zshrc`가 root 소유라 `gh`가 기본 경로에 로그인 정보를 저장 못 함.
+  해결: `GH_CONFIG_DIR=~/.gh-config` 사용 (gh auth login/status 및 git push 전에 `export GH_CONFIG_DIR=~/.gh-config` 필요).
+  영구 고치려면 사용자가 직접 `sudo chown -R dream:staff ~/.config ~/.zshrc` 실행 필요 (Claude가 임의로 sudo 실행하지 않음).
+
 ## 확인이 필요했던 결정 (히스토리)
 - 2026-07-31: F-101 시드 데이터 출처 → 사용자가 실제 행안부 CSV 직접 제공(위 참고).
+- 2026-07-31: GitHub 원격 연결 → https://github.com/eunylee/db-toolkit (위 Git 원격 섹션 참고).
