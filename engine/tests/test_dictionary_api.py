@@ -109,6 +109,26 @@ def test_add_single_term_upserts_without_wiping_other_custom_terms(client):
     assert resp.json()["total"] == 2
 
 
+def test_split_candidates_marks_existing_and_missing_words(client):
+    client.post("/dictionary/terms", json={"term": "외부", "abbreviation": "EXT", "data_type": "VARCHAR"})
+
+    resp = client.get("/dictionary/split-candidates", params={"text": "외부URL"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body[0] == {
+        "term": "외부",
+        "exists": True,
+        "abbreviation": "EXT",
+        "data_type": "VARCHAR",
+        "length": None,
+        "precision": None,
+        "scale": None,
+    }
+    assert body[1]["term"] == "URL"
+    assert body[1]["exists"] is False
+
+
 def test_segment_endpoint(client):
     csv_content = "term,abbreviation\n고객,CUST\n주문,ORD\n"
     client.post("/dictionary/import/custom", files={"file": ("custom.csv", csv_content, "text/csv")})

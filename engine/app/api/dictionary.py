@@ -9,9 +9,10 @@ from app.api.deps import get_db
 from app.core.dictionary import matcher
 from app.core.dictionary.importer import parse_custom_csv, parse_standard_csv
 from app.core.dictionary.repository import count_terms, list_terms, lookup_term, replace_terms, upsert_term
+from app.core.dictionary.tokenize import split_into_word_candidates
 from app.core.domains.derive import derive_domains_from_terms
 from app.core.domains.repository import replace_standard_domains
-from app.models.dictionary import DictionaryImportResult, DictionarySource, DictionaryTerm
+from app.models.dictionary import DictionaryImportResult, DictionarySource, DictionaryTerm, SplitCandidate
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -77,6 +78,33 @@ def get_lookup(term: str, conn: sqlite3.Connection = Depends(get_db)) -> Diction
     if result is None:
         raise HTTPException(status_code=404, detail=f"'{term}'에 대한 사전 매핑을 찾을 수 없습니다.")
     return result
+
+
+@router.get("/split-candidates", response_model=list[SplitCandidate])
+def get_split_candidates(text: str, conn: sqlite3.Connection = Depends(get_db)) -> list[SplitCandidate]:
+    """미등록 구간을 단어 후보로 쪼개고, 각 후보가 이미 사전에 있는지 확인한다.
+
+    통짜 복합어 하나로 등록하면 재사용이 안 되므로, 이미 있는 단어는 건너뛰고
+    없는 단어만 순서대로 등록하도록 유도하는 화면(F-103 보완)의 기반 데이터다.
+    """
+    candidates: list[SplitCandidate] = []
+    for token in split_into_word_candidates(text):
+        found = lookup_term(conn, token)
+        if found:
+            candidates.append(
+                SplitCandidate(
+                    term=token,
+                    exists=True,
+                    abbreviation=found.abbreviation,
+                    data_type=found.data_type,
+                    length=found.length,
+                    precision=found.precision,
+                    scale=found.scale,
+                )
+            )
+        else:
+            candidates.append(SplitCandidate(term=token, exists=False))
+    return candidates
 
 
 @router.get("/segment", response_model=list[matcher.MatchedSegment])

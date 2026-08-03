@@ -176,6 +176,9 @@ describe('TableDesigner', () => {
         usage_count: 10,
       },
     ])
+    vi.spyOn(dictionaryApi, 'getSplitCandidates').mockResolvedValue([
+      { term: 'VIP', exists: false, abbreviation: null, data_type: null, length: null, precision: null, scale: null },
+    ])
     const addTermSpy = vi.spyOn(dictionaryApi, 'addTerm').mockResolvedValue({
       term: 'VIP',
       abbreviation: 'VIP',
@@ -193,11 +196,12 @@ describe('TableDesigner', () => {
 
     await user.click(screen.getByText('사전에 추가'))
     await screen.findByRole('dialog', { name: '사전에 추가' })
-    await user.type(screen.getByLabelText('new-term-abbreviation'), 'VIP')
+    await user.type(screen.getByLabelText('new-term-abbreviation-0'), 'VIP')
     await user.click(screen.getByText('도메인 선택'))
     await screen.findByRole('dialog', { name: '도메인 선택' })
     await user.click(screen.getByText('선택'))
     await user.click(screen.getByText('등록'))
+    await user.click(await screen.findByText('완료'))
 
     await waitFor(() => expect(addTermSpy).toHaveBeenCalled())
     await waitFor(() => expect(screen.getByLabelText('physical-name-0')).toHaveValue('VIP_CUST_NM'))

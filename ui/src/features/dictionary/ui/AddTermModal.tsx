@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { addTerm } from '../api/dictionaryApi'
+import { useEffect, useState } from 'react'
+import { addTerm, getSplitCandidates } from '../api/dictionaryApi'
+import type { SplitCandidate } from '../model/types'
 import { DomainPickerModal } from '../../domains/ui/DomainPickerModal'
 import { formatDomainType, type Domain } from '../../domains/model/types'
 import './AddTermModal.css'
@@ -10,36 +11,64 @@ interface Props {
   onClose: () => void
 }
 
-// F-103 보완 흐름: 세그먼터가 "미등록"으로 표시한 단어를 그 자리에서 바로
-// 커스텀 사전에 등록할 수 있게 한다("자동 추천 + 사용자 확정"의 확정 경로).
-export function AddTermModal({ term, onRegistered, onClose }: Props) {
-  const [abbreviation, setAbbreviation] = useState('')
-  const [domain, setDomain] = useState<Domain | null>(null)
-  const [pickingDomain, setPickingDomain] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+interface CandidateRowState {
+  candidate: SplitCandidate
+  abbreviation: string
+  domain: Domain | null
+  registered: boolean
+  status: string | null
+}
 
-  async function handleSubmit() {
-    if (!abbreviation.trim() || !domain) {
-      setStatus('물리명(약어)과 도메인을 모두 지정해주세요.')
+function toRowState(candidate: SplitCandidate): CandidateRowState {
+  return { candidate, abbreviation: '', domain: null, registered: candidate.exists, status: null }
+}
+
+// F-103 보완 흐름: 미등록 구간("외부URL" 등)을 문자종류 경계로 쪼갠 단어 후보별로
+// 보여준다. 이미 사전에 있는 단어는 재사용하고, 없는 단어만 순서대로 등록하게 해서
+// 통짜 복합어 하나로 등록되는 것을 막는다(그래야 "URL" 같은 단어가 다른 조합에도 재사용됨).
+export function AddTermModal({ term, onRegistered, onClose }: Props) {
+  const [rows, setRows] = useState<CandidateRowState[] | null>(null)
+  const [pickingDomainFor, setPickingDomainFor] = useState<number | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getSplitCandidates(term)
+      .then((candidates) => {
+        if (!cancelled) setRows(candidates.map(toRowState))
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('단어 분리에 실패했습니다.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [term])
+
+  const allResolved = rows !== null && rows.every((r) => r.registered)
+
+  function updateRow(index: number, patch: Partial<CandidateRowState>) {
+    setRows((prev) => prev!.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+
+  async function handleRegister(index: number) {
+    const row = rows![index]
+    if (!row.abbreviation.trim() || !row.domain) {
+      updateRow(index, { status: '물리명(약어)과 도메인을 모두 지정해주세요.' })
       return
     }
-    setBusy(true)
-    setStatus(null)
     try {
       await addTerm({
-        term,
-        abbreviation,
-        data_type: domain.data_type,
-        length: domain.length,
-        precision: domain.precision,
-        scale: domain.scale,
+        term: row.candidate.term,
+        abbreviation: row.abbreviation,
+        data_type: row.domain.data_type,
+        length: row.domain.length,
+        precision: row.domain.precision,
+        scale: row.domain.scale,
       })
-      onRegistered()
+      updateRow(index, { registered: true, status: null })
     } catch {
-      setStatus('사전 등록에 실패했습니다.')
-    } finally {
-      setBusy(false)
+      updateRow(index, { status: '등록에 실패했습니다.' })
     }
   }
 
@@ -53,40 +82,61 @@ export function AddTermModal({ term, onRegistered, onClose }: Props) {
           </button>
         </div>
 
-        <label>
-          물리명(약어)
-          <input
-            aria-label="new-term-abbreviation"
-            value={abbreviation}
-            onChange={(e) => setAbbreviation(e.target.value)}
-          />
-        </label>
+        {loadError && <p className="add-term-modal__status">{loadError}</p>}
 
-        <div>
-          도메인:{' '}
-          {domain ? (
-            formatDomainType(domain)
-          ) : (
-            <span className="add-term-modal__empty">지정 안 됨</span>
-          )}{' '}
-          <button type="button" onClick={() => setPickingDomain(true)}>
-            도메인 선택
-          </button>
-        </div>
+        {rows?.map((row, i) => (
+          <div key={`${row.candidate.term}-${i}`} className="add-term-modal__row">
+            {row.registered ? (
+              <p>
+                {row.candidate.term}: {row.candidate.exists ? '이미 있음' : '등록됨'} —{' '}
+                {row.candidate.exists
+                  ? `${row.candidate.abbreviation} (${formatDomainType({
+                      data_type: row.candidate.data_type ?? 'UNKNOWN',
+                      length: row.candidate.length,
+                      precision: row.candidate.precision,
+                      scale: row.candidate.scale,
+                    })})`
+                  : row.abbreviation}
+              </p>
+            ) : (
+              <>
+                <span>{row.candidate.term}</span>
+                <input
+                  aria-label={`new-term-abbreviation-${i}`}
+                  placeholder="물리명(약어)"
+                  value={row.abbreviation}
+                  onChange={(e) => updateRow(i, { abbreviation: e.target.value })}
+                />
+                <span>{row.domain ? formatDomainType(row.domain) : '도메인 미지정'}</span>
+                <button type="button" onClick={() => setPickingDomainFor(i)}>
+                  도메인 선택
+                </button>
+                <button type="button" onClick={() => handleRegister(i)}>
+                  등록
+                </button>
+                {row.status && <p className="add-term-modal__status">{row.status}</p>}
+              </>
+            )}
+          </div>
+        ))}
 
-        {status && <p className="add-term-modal__status">{status}</p>}
-
-        <button onClick={handleSubmit} disabled={busy}>
-          등록
-        </button>
-
-        {pickingDomain && (
-          <DomainPickerModal
-            onSelect={(d) => {
-              setDomain(d)
-              setPickingDomain(false)
+        {allResolved && (
+          <button
+            onClick={() => {
+              onRegistered()
             }}
-            onClose={() => setPickingDomain(false)}
+          >
+            완료
+          </button>
+        )}
+
+        {pickingDomainFor !== null && (
+          <DomainPickerModal
+            onSelect={(domain) => {
+              updateRow(pickingDomainFor, { domain })
+              setPickingDomainFor(null)
+            }}
+            onClose={() => setPickingDomainFor(null)}
           />
         )}
       </div>
