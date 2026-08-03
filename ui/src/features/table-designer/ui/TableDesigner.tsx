@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { applySuggestion, createEmptyColumn, toTablePayload } from '../model/columnDraft'
-import type { ColumnDraft, DataType } from '../model/types'
+import type { ColumnDraft } from '../model/types'
 import { saveTable, suggestColumns } from '../api/tableDesignerApi'
+import { DomainPickerModal } from '../../domains/ui/DomainPickerModal'
+import { formatDomainType, type Domain } from '../../domains/model/types'
+import { AddTermModal } from '../../dictionary/ui/AddTermModal'
 import './TableDesigner.css'
 
 export function TableDesigner() {
@@ -10,6 +13,8 @@ export function TableDesigner() {
   const [columns, setColumns] = useState<ColumnDraft[]>([createEmptyColumn()])
   const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [domainPickerFor, setDomainPickerFor] = useState<number | null>(null)
+  const [addTermTarget, setAddTermTarget] = useState<{ columnIndex: number; term: string } | null>(null)
 
   function updateColumn(index: number, patch: Partial<ColumnDraft>) {
     setColumns((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)))
@@ -17,6 +22,16 @@ export function TableDesigner() {
 
   function addColumn() {
     setColumns((prev) => [...prev, createEmptyColumn()])
+  }
+
+  function applyDomainToColumn(index: number, domain: Domain) {
+    updateColumn(index, {
+      dataType: domain.data_type,
+      length: domain.length,
+      precision: domain.precision,
+      scale: domain.scale,
+    })
+    setDomainPickerFor(null)
   }
 
   async function handleSuggest() {
@@ -29,6 +44,17 @@ export function TableDesigner() {
       setStatus('물리명 제안에 실패했습니다. 엔진 서버가 실행 중인지 확인해주세요.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function refreshSuggestionForColumn(index: number) {
+    const col = columns[index]
+    if (!col.logicalName.trim()) return
+    try {
+      const [suggestion] = await suggestColumns([col.logicalName])
+      setColumns((prev) => prev.map((c, i) => (i === index ? applySuggestion(c, suggestion) : c)))
+    } catch {
+      setStatus('물리명 제안 갱신에 실패했습니다.')
     }
   }
 
@@ -91,9 +117,14 @@ export function TableDesigner() {
                   value={col.logicalName}
                   onChange={(e) => updateColumn(i, { logicalName: e.target.value })}
                 />
-                {col.unmatchedSegments.length > 0 && (
-                  <p className="table-designer__warning">미등록: {col.unmatchedSegments.join(', ')}</p>
-                )}
+                {col.unmatchedSegments.map((segment, si) => (
+                  <p key={`${si}-${segment}`} className="table-designer__warning">
+                    미등록: {segment}{' '}
+                    <button type="button" onClick={() => setAddTermTarget({ columnIndex: i, term: segment })}>
+                      사전에 추가
+                    </button>
+                  </p>
+                ))}
               </td>
               <td>
                 <input
@@ -103,17 +134,16 @@ export function TableDesigner() {
                 />
               </td>
               <td>
-                <select
-                  aria-label={`data-type-${i}`}
-                  value={col.dataType}
-                  onChange={(e) => updateColumn(i, { dataType: e.target.value as DataType })}
-                >
-                  <option value="UNKNOWN">-</option>
-                  <option value="VARCHAR">VARCHAR</option>
-                  <option value="CHAR">CHAR</option>
-                  <option value="NUMBER">NUMBER</option>
-                  <option value="DATE">DATE</option>
-                </select>
+                <button type="button" onClick={() => setDomainPickerFor(i)}>
+                  {col.dataType === 'UNKNOWN'
+                    ? '도메인 지정'
+                    : formatDomainType({
+                        data_type: col.dataType,
+                        length: col.length,
+                        precision: col.precision,
+                        scale: col.scale,
+                      })}
+                </button>
               </td>
               <td>
                 <input
@@ -134,6 +164,25 @@ export function TableDesigner() {
           ))}
         </tbody>
       </table>
+
+      {domainPickerFor !== null && (
+        <DomainPickerModal
+          onSelect={(domain) => applyDomainToColumn(domainPickerFor, domain)}
+          onClose={() => setDomainPickerFor(null)}
+        />
+      )}
+
+      {addTermTarget && (
+        <AddTermModal
+          term={addTermTarget.term}
+          onRegistered={() => {
+            const { columnIndex } = addTermTarget
+            setAddTermTarget(null)
+            refreshSuggestionForColumn(columnIndex)
+          }}
+          onClose={() => setAddTermTarget(null)}
+        />
+      )}
     </div>
   )
 }

@@ -85,6 +85,30 @@ def test_terms_listing_pagination(client):
     assert len(body["items"]) == 1
 
 
+def test_add_single_term_registers_in_custom_dictionary(client):
+    resp = client.post(
+        "/dictionary/terms",
+        json={"term": "VIP", "abbreviation": "VIP", "data_type": "VARCHAR", "length": 10, "source": "standard"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    # source는 항상 custom으로 강제된다 (표준 사전은 API로 건드릴 수 없음)
+    assert body["source"] == "custom"
+
+    lookup = client.get("/dictionary/lookup", params={"term": "VIP"})
+    assert lookup.json()["abbreviation"] == "VIP"
+
+
+def test_add_single_term_upserts_without_wiping_other_custom_terms(client):
+    client.post("/dictionary/terms", json={"term": "고객", "abbreviation": "CUST", "data_type": "VARCHAR"})
+    client.post("/dictionary/terms", json={"term": "등록번호", "abbreviation": "REG_NO", "data_type": "VARCHAR"})
+
+    resp = client.get("/dictionary/terms", params={"source": "custom"})
+
+    assert resp.json()["total"] == 2
+
+
 def test_segment_endpoint(client):
     csv_content = "term,abbreviation\n고객,CUST\n주문,ORD\n"
     client.post("/dictionary/import/custom", files={"file": ("custom.csv", csv_content, "text/csv")})

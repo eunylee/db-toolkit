@@ -29,6 +29,18 @@ CREATE TABLE IF NOT EXISTS dictionary_terms (
 );
 CREATE INDEX IF NOT EXISTS idx_dictionary_terms_term ON dictionary_terms(term);
 CREATE INDEX IF NOT EXISTS idx_dictionary_terms_source ON dictionary_terms(source);
+
+CREATE TABLE IF NOT EXISTS domains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    data_type TEXT NOT NULL,
+    length INTEGER,
+    precision INTEGER,
+    scale INTEGER,
+    source TEXT NOT NULL CHECK (source IN ('standard', 'custom')),
+    UNIQUE(name, source)
+);
+CREATE INDEX IF NOT EXISTS idx_domains_name ON domains(name);
 """
 
 

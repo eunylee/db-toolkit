@@ -21,6 +21,12 @@
   - `erd_notation_prototype.jsx`(Barker/IE 토글 렌더러)를 실제 데이터 기반으로 전환해 재사용
 - Unit 3에서 API 라우터 중복 의존성 버그 발견/수정: 라우터마다 개별 `_db()` 의존성을 정의하면 테스트의 `dependency_overrides`가 다른 라우터엔 적용 안 됨 → `app/api/deps.py`의 공유 `get_db`로 통일.
 - pydantic `model_dump()`는 Enum을 그대로 두므로 YAML(safe_load) 왕복이 깨짐 → YAML/JSON 직렬화 전에는 항상 `model_dump(mode="json")` 사용.
+- **도메인(Domain)은 용어(Term)와 분리된 독립 엔티티다.** 처음엔 "미등록 단어 등록 폼에 타입 필드만 추가"하려 했으나, 실데이터 확인 결과 13,176개 용어가 단 123개 도메인코드만 재사용(예: `명V100`이 1,117회, `연월일C8`이 1,850회)하는 구조라 용어마다 도메인을 새로 만들면 안 됨. 그래서 `domains` 테이블을 새로 만들고 `dictionary_terms.domain_code`와 조인해 사용횟수를 계산.
+  - 표준 도메인: 표준사전 임포트(`POST /dictionary/import/standard`) 시 `derive_domains_from_terms`로 자동 추출/갱신 (읽기 전용, API로 수정·삭제 불가 → 400)
+  - 커스텀 도메인: 별도 CRUD(`POST/GET/PUT/DELETE /domains`), UI에서도 표준 도메인 행에는 수정/삭제 버튼 자체가 없음
+  - "출처"(표준/커스텀) 구분은 사전(dictionary_terms)과 동일한 패턴 재사용
+- **도메인 선택 UI는 두 자리에서 재사용된다**: (1) 독립 "도메인 관리" 화면(목록/검색/생성/수정/삭제), (2) 테이블 설계 화면의 컬럼 "데이터타입" 칸을 누르면 뜨는 `DomainPickerModal` 팝업(검색해서 선택 또는 그 자리에서 새로 만들어 바로 선택) — 둘 다 `features/domains/ui/DomainList.tsx`를 공유.
+- **미등록 단어 → 사전 등록 흐름**: 세그먼터가 "미등록"으로 표시한 구간마다 "사전에 추가" 버튼 → `AddTermModal`(물리명 입력 + `DomainPickerModal`로 도메인 선택) → `POST /dictionary/terms`(단건 upsert, source는 항상 custom으로 강제)로 등록 → 그 컬럼만 다시 `POST /naming/suggest` 호출해 제안 갱신. 실브라우저 E2E로 "VIP고객명"의 미등록 "VIP"를 등록하니 즉시 완전매칭(VIP_CUST_NM)으로 바뀌는 것까지 확인.
 
 ## 완료
 - [x] Unit 0: 저장 기반 — `engine/app/storage/db.py`, `yaml_store.py`. 테스트 `tests/test_storage.py` (4).
@@ -48,6 +54,15 @@
   - `ui/features/table-designer/`: model(columnDraft.ts, 순수 병합/변환 로직)/api/ui(TableDesigner.tsx) — 논리명 입력 → "물리명 제안 적용" → 완전매칭은 물리명·타입 채움, 부분매칭은 사용자가 적은 물리명 보존하고 "미등록: X" 경고만 표시 → PK 체크 → "테이블로 저장"
   - 프런트 테스트 10개 추가 → 전체 24 passed, 타입체크 통과
   - 실브라우저 E2E 확인: 완전매칭(고객등록번호→CUST_REG_NO, PK 체크, 저장 후 GET /tables/고객으로 영속 확인) + 부분매칭(VIP고객 → "미등록: VIP" 표시, 물리명 안 지어냄) 둘 다 정상
+- [x] Unit 3.5: 도메인 관리 + 미등록 단어 사전 등록 (F-103 보완, Unit 3 직후 진행)
+  - `app/models/domains.py`(Domain), `core/domains/derive.py`(표준사전에서 domain_code 중복제거로 도메인 추출), `core/domains/repository.py`(표준=전체재적재/읽기전용, 커스텀=CRUD, `dictionary_terms` JOIN으로 usage_count 계산)
+  - `core/dictionary/repository.py`에 `upsert_term` 추가 (단건 등록/수정, replace_terms와 달리 같은 source의 다른 단어를 안 지움)
+  - `api/domains.py`: GET·POST /domains, PUT·DELETE /domains/{id} (표준 도메인 수정/삭제 시 400) / `api/dictionary.py`에 POST /dictionary/terms 추가 (표준사전 임포트 시 도메인도 함께 갱신)
+  - 백엔드 테스트 26개 추가 → 전체 94 passed
+  - `ui/features/domains/`: model(types.ts, formatDomainType)/api/ui(DomainList, DomainForm, DomainManagerPage, DomainPickerModal, useDomainSearch 훅) — 독립 도메인 관리 화면 + 테이블 설계 컬럼의 "도메인 지정" 버튼에서 뜨는 재사용 팝업
+  - `ui/features/dictionary/`: AddTermModal — TableDesigner의 "미등록: X" 경고 옆 "사전에 추가" 버튼에서 열림, 물리명 입력 + DomainPickerModal로 도메인 선택 후 등록, 등록 즉시 해당 컬럼만 제안 재조회
+  - 프런트 테스트 19개 추가 → 전체 43 passed, 타입체크 통과
+  - 실브라우저 E2E: 표준사전 임포트 시 123개 도메인 자동 생성(사용횟수 정확) 확인, 테이블 설계에서 도메인 피커로 컬럼 타입 지정 확인, 커스텀 도메인 생성/수정/삭제 확인, 표준 도메인은 UI에 수정/삭제 버튼 자체가 안 뜨는 것 확인, "VIP고객명"의 미등록 "VIP"를 사전에 등록하니 즉시 물리명이 VIP_CUST_NM으로 자동완성되는 것까지 확인
 
 ## 다음 (Unit 3 이후 재정렬됨 — 아래 "PK/FK/ERD 스코프" 참고)
 - [ ] Unit 4: ERD 시각화 (읽기전용, 관계선 없음) — `erd_notation_prototype.jsx`를 실제 테이블 데이터 기반으로 전환
@@ -85,3 +100,4 @@ npx tsc -b                                    # 타입체크
 - 2026-07-31: GitHub 원격 연결 → https://github.com/eunylee/db-toolkit (위 Git 원격 섹션 참고).
 - 2026-07-31: F-102 헤더 강제 여부 → 자유 그리드 유지, 구조화된 컬럼은 별도 "테이블 설계" 화면으로 분리 (위 아키텍처 결정 참고).
 - 2026-07-31: PK/FK/ERD 스코프 → PK는 단일 테이블 체크박스, FK/관계선은 필수 스코프 밖이며 그린필드는 수동 드래그·레거시는 자동 파싱으로 분리 (위 아키텍처 결정 참고). 수동 관계선 인터랙션은 드래그 연결 방식으로 결정(폼 방식 대신).
+- 2026-08-03: 도메인 관리 → 독립 화면(목록/생성/수정/삭제) + 테이블 설계 컬럼에서 팝업으로도 재사용, "출처"(표준/커스텀) 구분 도입 (위 아키텍처 결정 참고). 이후 사용자가 자리 비운 동안은 확인 없이 판단해서 진행하도록 지시받음 — 미등록 단어 등록 흐름까지 이어서 마무리함.

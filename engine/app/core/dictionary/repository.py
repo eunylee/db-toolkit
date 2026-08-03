@@ -76,6 +76,51 @@ def replace_terms(
     return DictionaryImportResult(source=source, imported=len(deduped), skipped=skipped, errors=errors)
 
 
+def upsert_term(conn: sqlite3.Connection, term: DictionaryTerm) -> DictionaryTerm:
+    """단어 하나만 등록/수정한다 (미등록 단어를 사전에 추가하는 F-103 보완 흐름).
+
+    replace_terms와 달리 같은 source의 다른 기존 단어를 지우지 않는다.
+    """
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO dictionary_terms (
+                term, description, abbreviation, domain_code, domain_class,
+                data_type, length, precision, scale, storage_format,
+                allowed_values, synonyms, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(term, source) DO UPDATE SET
+                description = excluded.description,
+                abbreviation = excluded.abbreviation,
+                domain_code = excluded.domain_code,
+                domain_class = excluded.domain_class,
+                data_type = excluded.data_type,
+                length = excluded.length,
+                precision = excluded.precision,
+                scale = excluded.scale,
+                storage_format = excluded.storage_format,
+                allowed_values = excluded.allowed_values,
+                synonyms = excluded.synonyms
+            """,
+            (
+                term.term,
+                term.description,
+                term.abbreviation,
+                term.domain_code,
+                term.domain_class,
+                term.data_type.value,
+                term.length,
+                term.precision,
+                term.scale,
+                term.storage_format,
+                term.allowed_values,
+                json.dumps(term.synonyms, ensure_ascii=False),
+                term.source.value,
+            ),
+        )
+    return term
+
+
 def lookup_term(conn: sqlite3.Connection, term: str) -> DictionaryTerm | None:
     """정확 일치(용어명 또는 동의어) 조회. custom 사전이 standard보다 우선한다."""
     for source in (DictionarySource.CUSTOM, DictionarySource.STANDARD):

@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from app.api.deps import get_db
 from app.core.dictionary import matcher
 from app.core.dictionary.importer import parse_custom_csv, parse_standard_csv
-from app.core.dictionary.repository import count_terms, list_terms, lookup_term, replace_terms
+from app.core.dictionary.repository import count_terms, list_terms, lookup_term, replace_terms, upsert_term
+from app.core.domains.derive import derive_domains_from_terms
+from app.core.domains.repository import replace_standard_domains
 from app.models.dictionary import DictionaryImportResult, DictionarySource, DictionaryTerm
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
@@ -18,10 +20,15 @@ STANDARD_SEED_PATH = Path(__file__).resolve().parent.parent / "data" / "dictiona
 
 @router.post("/import/standard", response_model=DictionaryImportResult)
 def import_standard(conn: sqlite3.Connection = Depends(get_db)) -> DictionaryImportResult:
-    """번들된 행정안전부 공공데이터 공통표준용어 시드를 SQLite로 (재)적재한다."""
+    """번들된 행정안전부 공공데이터 공통표준용어 시드를 SQLite로 (재)적재한다.
+
+    같은 시드에서 재사용 가능한 도메인 목록(표준 도메인)도 함께 갱신한다.
+    """
     content = STANDARD_SEED_PATH.read_text(encoding="utf-8-sig")
     terms = parse_standard_csv(content)
-    return replace_terms(conn, terms, DictionarySource.STANDARD)
+    result = replace_terms(conn, terms, DictionarySource.STANDARD)
+    replace_standard_domains(conn, derive_domains_from_terms(terms))
+    return result
 
 
 @router.post("/import/custom", response_model=DictionaryImportResult)
@@ -39,6 +46,16 @@ async def import_custom(file: UploadFile, conn: sqlite3.Connection = Depends(get
         raise HTTPException(status_code=422, detail=str(e))
 
     return replace_terms(conn, terms, DictionarySource.CUSTOM)
+
+
+@router.post("/terms", response_model=DictionaryTerm)
+def add_term(term: DictionaryTerm, conn: sqlite3.Connection = Depends(get_db)) -> DictionaryTerm:
+    """미등록 단어를 커스텀 사전에 단건 등록/수정한다 (F-103 '자동 추천 + 사용자 확정' 보완).
+
+    표준 사전은 건드릴 수 없으므로 source는 항상 custom으로 강제한다.
+    """
+    term = term.model_copy(update={"source": DictionarySource.CUSTOM})
+    return upsert_term(conn, term)
 
 
 @router.get("/terms")

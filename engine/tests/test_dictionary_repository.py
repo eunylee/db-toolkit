@@ -20,6 +20,28 @@ def _term(term, abbr, source=DictionarySource.STANDARD, synonyms=None):
     )
 
 
+def test_upsert_term_inserts_new_term(tmp_path):
+    conn = _conn(tmp_path)
+    repository.upsert_term(conn, _term("VIP", "VIP", source=DictionarySource.CUSTOM))
+
+    found = repository.lookup_term(conn, "VIP")
+
+    assert found.abbreviation == "VIP"
+    assert found.source == DictionarySource.CUSTOM
+
+
+def test_upsert_term_updates_existing_without_wiping_others(tmp_path):
+    conn = _conn(tmp_path)
+    repository.upsert_term(conn, _term("고객", "CUST", source=DictionarySource.CUSTOM))
+    repository.upsert_term(conn, _term("등록번호", "REG_NO", source=DictionarySource.CUSTOM))
+
+    repository.upsert_term(conn, _term("고객", "CUSTOMER", source=DictionarySource.CUSTOM))
+
+    assert repository.lookup_term(conn, "고객").abbreviation == "CUSTOMER"
+    assert repository.lookup_term(conn, "등록번호").abbreviation == "REG_NO"
+    assert repository.count_terms(conn, DictionarySource.CUSTOM) == 2
+
+
 def test_replace_terms_inserts_and_counts(tmp_path):
     conn = _conn(tmp_path)
     result = repository.replace_terms(conn, [_term("고객명", "CUST_NM")], DictionarySource.STANDARD)

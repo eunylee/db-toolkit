@@ -1,0 +1,54 @@
+.domain-manager__status {
+  color: #d33;
+  font-size: 0.85rem;
+}
+
+.domain-list {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+}
+
+.domain-list th,
+.domain-list td {
+  border: 1px solid #ccc;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.domain-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.domain-form input {
+  width: 90px;
+}
+
+.domain-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.domain-picker {
+  background: var(--panel-bg, #1e1e1e);
+  color: inherit;
+  border-radius: 8px;
+  padding: 1rem;
+  min-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.domain-picker__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

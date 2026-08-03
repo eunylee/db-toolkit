@@ -1,0 +1,36 @@
+.add-term-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.add-term-modal {
+  background: var(--panel-bg, #1e1e1e);
+  color: inherit;
+  border-radius: 8px;
+  padding: 1rem;
+  min-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.add-term-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.add-term-modal__status {
+  color: #d33;
+  font-size: 0.85rem;
+}
+
+.add-term-modal__empty {
+  color: #888;
+  font-size: 0.85rem;
+}
