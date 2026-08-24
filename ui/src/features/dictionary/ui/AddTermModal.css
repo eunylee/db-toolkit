@@ -47,3 +47,45 @@
 .add-term-modal__row input {
   width: 100px;
 }
+
+.add-term-modal__resplit {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 0.6rem;
+}
+
+.add-term-modal__resplit label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.add-term-modal__resplit input {
+  width: 100%;
+}
+
+.add-term-modal__suggestions {
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.add-term-modal__suggestion-chip {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+}
+
+.add-term-modal__domain-word-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}

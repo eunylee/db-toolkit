@@ -27,19 +27,19 @@ def post_domain(domain: Domain, conn: sqlite3.Connection = Depends(get_db)) -> D
     return create_domain(conn, domain)
 
 
-@router.put("/{domain_id}", response_model=Domain)
-def put_domain(domain_id: int, domain: Domain, conn: sqlite3.Connection = Depends(get_db)) -> Domain:
+@router.put("/{domain_name}", response_model=Domain)
+def put_domain(domain_name: str, domain: Domain, conn: sqlite3.Connection = Depends(get_db)) -> Domain:
     try:
-        return update_domain(conn, domain_id, domain)
+        return update_domain(conn, domain_name, domain)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except StandardDomainImmutableError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/{domain_id}", status_code=204)
-def delete_domain_endpoint(domain_id: int, conn: sqlite3.Connection = Depends(get_db)) -> None:
+@router.delete("/{domain_name}", status_code=204)
+def delete_domain_endpoint(domain_name: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     try:
-        delete_domain(conn, domain_id)
+        delete_domain(conn, domain_name)
     except StandardDomainImmutableError as e:
         raise HTTPException(status_code=400, detail=str(e))

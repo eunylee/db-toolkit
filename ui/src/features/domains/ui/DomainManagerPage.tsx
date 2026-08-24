@@ -25,9 +25,9 @@ export function DomainManagerPage() {
   }
 
   async function handleUpdate(draft: DomainDraft) {
-    if (editing?.id == null) return
+    if (!editing) return
     try {
-      await updateDomain(editing.id, draft)
+      await updateDomain(editing.name, draft)
       setEditing(null)
       setStatus(null)
       refresh()
@@ -37,9 +37,8 @@ export function DomainManagerPage() {
   }
 
   async function handleDelete(domain: Domain) {
-    if (domain.id == null) return
     try {
-      await deleteDomain(domain.id)
+      await deleteDomain(domain.name)
       refresh()
     } catch {
       setStatus('도메인 삭제에 실패했습니다. (표준 도메인은 삭제할 수 없습니다)')

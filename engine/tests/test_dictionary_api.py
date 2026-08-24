@@ -85,48 +85,23 @@ def test_terms_listing_pagination(client):
     assert len(body["items"]) == 1
 
 
-def test_add_single_term_registers_in_custom_dictionary(client):
-    resp = client.post(
-        "/dictionary/terms",
-        json={"term": "VIP", "abbreviation": "VIP", "data_type": "VARCHAR", "length": 10, "source": "standard"},
-    )
+def test_abbreviation_suggestions_from_bundled_standard_seed(client):
+    """실제 행안부 표준 데이터에서 "참조"가 접두인 용어들은 대부분 RFRNC로 시작한다."""
+    client.post("/dictionary/import/standard")
+
+    resp = client.get("/dictionary/abbreviation-suggestions", params={"word": "참조"})
 
     assert resp.status_code == 200
     body = resp.json()
-    # source는 항상 custom으로 강제된다 (표준 사전은 API로 건드릴 수 없음)
-    assert body["source"] == "custom"
-
-    lookup = client.get("/dictionary/lookup", params={"term": "VIP"})
-    assert lookup.json()["abbreviation"] == "VIP"
+    assert body[0]["token"] == "RFRNC"
+    assert body[0]["count"] >= 5
 
 
-def test_add_single_term_upserts_without_wiping_other_custom_terms(client):
-    client.post("/dictionary/terms", json={"term": "고객", "abbreviation": "CUST", "data_type": "VARCHAR"})
-    client.post("/dictionary/terms", json={"term": "등록번호", "abbreviation": "REG_NO", "data_type": "VARCHAR"})
-
-    resp = client.get("/dictionary/terms", params={"source": "custom"})
-
-    assert resp.json()["total"] == 2
-
-
-def test_split_candidates_marks_existing_and_missing_words(client):
-    client.post("/dictionary/terms", json={"term": "외부", "abbreviation": "EXT", "data_type": "VARCHAR"})
-
-    resp = client.get("/dictionary/split-candidates", params={"text": "외부URL"})
+def test_abbreviation_suggestions_empty_for_unknown_word(client):
+    resp = client.get("/dictionary/abbreviation-suggestions", params={"word": "완전히새로운단어"})
 
     assert resp.status_code == 200
-    body = resp.json()
-    assert body[0] == {
-        "term": "외부",
-        "exists": True,
-        "abbreviation": "EXT",
-        "data_type": "VARCHAR",
-        "length": None,
-        "precision": None,
-        "scale": None,
-    }
-    assert body[1]["term"] == "URL"
-    assert body[1]["exists"] is False
+    assert resp.json() == []
 
 
 def test_segment_endpoint(client):

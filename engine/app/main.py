@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import dictionary, domains, naming, scrapbook, tables
+from app.api import dictionary, domains, naming, scrapbook, tables, words
 from app.storage.db import get_connection, init_db
 
 
@@ -30,6 +30,7 @@ app.include_router(scrapbook.router)
 app.include_router(naming.router)
 app.include_router(tables.router)
 app.include_router(domains.router)
+app.include_router(words.router)
 
 
 @app.get("/health")

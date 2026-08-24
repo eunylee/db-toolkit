@@ -1,6 +1,10 @@
-"""사전 SQLite 리포지토리.
+"""사전(용어=복합 업무용어) SQLite 리포지토리. 테이블: tb_terms.
 
 커스텀 사전(F-106)은 표준 사전(F-101)보다 항상 우선순위가 높다 (조회 시 custom 먼저 조회).
+
+DB 컬럼명(term_nm, abbreviation_cd 등)과 API/Pydantic 필드명(term, abbreviation 등)은
+의도적으로 분리되어 있다 — DB 스키마는 우리 자신의 명명 규칙(단어+도메인 접미사, 예약어
+회피)을 따르고, API 계약은 프런트엔드 변경 없이 안정적으로 유지하기 위함이다.
 """
 
 import json
@@ -11,19 +15,19 @@ from app.models.dictionary import DictionaryDataType, DictionaryImportResult, Di
 
 def _row_to_term(row: sqlite3.Row) -> DictionaryTerm:
     return DictionaryTerm(
-        term=row["term"],
-        description=row["description"],
-        abbreviation=row["abbreviation"],
-        domain_code=row["domain_code"],
-        domain_class=row["domain_class"],
-        data_type=DictionaryDataType(row["data_type"]),
-        length=row["length"],
-        precision=row["precision"],
-        scale=row["scale"],
-        storage_format=row["storage_format"],
-        allowed_values=row["allowed_values"],
-        synonyms=json.loads(row["synonyms"]),
-        source=DictionarySource(row["source"]),
+        term=row["term_nm"],
+        description=row["term_cn"],
+        abbreviation=row["abbreviation_cd"],
+        domain_code=row["domain_cd"],
+        domain_class=row["domain_class_nm"],
+        data_type=DictionaryDataType(row["data_type_cd"]),
+        length=row["length_no"],
+        precision=row["precision_no"],
+        scale=row["scale_no"],
+        storage_format=row["storage_format_cn"],
+        allowed_values=row["allowed_value_cn"],
+        synonyms=json.loads(row["synonym_list_cn"]),
+        source=DictionarySource(row["source_cd"]),
     )
 
 
@@ -44,13 +48,13 @@ def replace_terms(
         deduped.append(term)
 
     with conn:
-        conn.execute("DELETE FROM dictionary_terms WHERE source = ?", (source.value,))
+        conn.execute("DELETE FROM tb_terms WHERE source_cd = ?", (source.value,))
         conn.executemany(
             """
-            INSERT INTO dictionary_terms (
-                term, description, abbreviation, domain_code, domain_class,
-                data_type, length, precision, scale, storage_format,
-                allowed_values, synonyms, source
+            INSERT INTO tb_terms (
+                term_nm, term_cn, abbreviation_cd, domain_cd, domain_class_nm,
+                data_type_cd, length_no, precision_no, scale_no, storage_format_cn,
+                allowed_value_cn, synonym_list_cn, source_cd
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
@@ -77,30 +81,27 @@ def replace_terms(
 
 
 def upsert_term(conn: sqlite3.Connection, term: DictionaryTerm) -> DictionaryTerm:
-    """단어 하나만 등록/수정한다 (미등록 단어를 사전에 추가하는 F-103 보완 흐름).
-
-    replace_terms와 달리 같은 source의 다른 기존 단어를 지우지 않는다.
-    """
+    """용어 하나만 등록/수정한다. replace_terms와 달리 같은 source의 다른 기존 용어를 지우지 않는다."""
     with conn:
         conn.execute(
             """
-            INSERT INTO dictionary_terms (
-                term, description, abbreviation, domain_code, domain_class,
-                data_type, length, precision, scale, storage_format,
-                allowed_values, synonyms, source
+            INSERT INTO tb_terms (
+                term_nm, term_cn, abbreviation_cd, domain_cd, domain_class_nm,
+                data_type_cd, length_no, precision_no, scale_no, storage_format_cn,
+                allowed_value_cn, synonym_list_cn, source_cd
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(term, source) DO UPDATE SET
-                description = excluded.description,
-                abbreviation = excluded.abbreviation,
-                domain_code = excluded.domain_code,
-                domain_class = excluded.domain_class,
-                data_type = excluded.data_type,
-                length = excluded.length,
-                precision = excluded.precision,
-                scale = excluded.scale,
-                storage_format = excluded.storage_format,
-                allowed_values = excluded.allowed_values,
-                synonyms = excluded.synonyms
+            ON CONFLICT(term_nm, source_cd) DO UPDATE SET
+                term_cn = excluded.term_cn,
+                abbreviation_cd = excluded.abbreviation_cd,
+                domain_cd = excluded.domain_cd,
+                domain_class_nm = excluded.domain_class_nm,
+                data_type_cd = excluded.data_type_cd,
+                length_no = excluded.length_no,
+                precision_no = excluded.precision_no,
+                scale_no = excluded.scale_no,
+                storage_format_cn = excluded.storage_format_cn,
+                allowed_value_cn = excluded.allowed_value_cn,
+                synonym_list_cn = excluded.synonym_list_cn
             """,
             (
                 term.term,
@@ -125,7 +126,7 @@ def lookup_term(conn: sqlite3.Connection, term: str) -> DictionaryTerm | None:
     """정확 일치(용어명 또는 동의어) 조회. custom 사전이 standard보다 우선한다."""
     for source in (DictionarySource.CUSTOM, DictionarySource.STANDARD):
         row = conn.execute(
-            "SELECT * FROM dictionary_terms WHERE source = ? AND term = ?",
+            "SELECT * FROM tb_terms WHERE source_cd = ? AND term_nm = ?",
             (source.value, term),
         ).fetchone()
         if row:
@@ -133,9 +134,9 @@ def lookup_term(conn: sqlite3.Connection, term: str) -> DictionaryTerm | None:
 
     # 동의어 매칭은 전체 스캔이 필요 (사전 규모상 로컬 1인 사용에는 충분히 빠름)
     for source in (DictionarySource.CUSTOM, DictionarySource.STANDARD):
-        rows = conn.execute("SELECT * FROM dictionary_terms WHERE source = ?", (source.value,)).fetchall()
+        rows = conn.execute("SELECT * FROM tb_terms WHERE source_cd = ?", (source.value,)).fetchall()
         for row in rows:
-            if term in json.loads(row["synonyms"]):
+            if term in json.loads(row["synonym_list_cn"]):
                 return _row_to_term(row)
 
     return None
@@ -148,28 +149,34 @@ def list_terms(
     limit: int = 50,
     offset: int = 0,
 ) -> list[DictionaryTerm]:
-    sql = "SELECT * FROM dictionary_terms WHERE 1=1"
+    sql = "SELECT * FROM tb_terms WHERE 1=1"
     params: list[str | int] = []
 
     if query:
-        sql += " AND (term LIKE ? OR abbreviation LIKE ?)"
+        sql += " AND (term_nm LIKE ? OR abbreviation_cd LIKE ?)"
         params.extend([f"%{query}%", f"%{query}%"])
     if source:
-        sql += " AND source = ?"
+        sql += " AND source_cd = ?"
         params.append(source.value)
 
-    sql += " ORDER BY term LIMIT ? OFFSET ?"
+    sql += " ORDER BY term_nm LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
     rows = conn.execute(sql, params).fetchall()
     return [_row_to_term(r) for r in rows]
 
 
+def find_terms_containing(conn: sqlite3.Connection, substring: str) -> list[DictionaryTerm]:
+    """용어명에 substring이 포함된 모든 레코드(표준+커스텀). 약어 추천 통계용."""
+    rows = conn.execute("SELECT * FROM tb_terms WHERE term_nm LIKE ?", (f"%{substring}%",)).fetchall()
+    return [_row_to_term(r) for r in rows]
+
+
 def count_terms(conn: sqlite3.Connection, source: DictionarySource | None = None) -> int:
     if source:
         row = conn.execute(
-            "SELECT COUNT(*) as c FROM dictionary_terms WHERE source = ?", (source.value,)
+            "SELECT COUNT(*) as c FROM tb_terms WHERE source_cd = ?", (source.value,)
         ).fetchone()
     else:
-        row = conn.execute("SELECT COUNT(*) as c FROM dictionary_terms").fetchone()
+        row = conn.execute("SELECT COUNT(*) as c FROM tb_terms").fetchone()
     return row["c"]

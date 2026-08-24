@@ -26,6 +26,7 @@ export function TableDesigner() {
 
   function applyDomainToColumn(index: number, domain: Domain) {
     updateColumn(index, {
+      domainName: domain.name,
       dataType: domain.data_type,
       length: domain.length,
       precision: domain.precision,
@@ -137,12 +138,12 @@ export function TableDesigner() {
                 <button type="button" onClick={() => setDomainPickerFor(i)}>
                   {col.dataType === 'UNKNOWN'
                     ? '도메인 지정'
-                    : formatDomainType({
+                    : `${col.domainName ? `${col.domainName} · ` : ''}${formatDomainType({
                         data_type: col.dataType,
                         length: col.length,
                         precision: col.precision,
                         scale: col.scale,
-                      })}
+                      })}`}
                 </button>
               </td>
               <td>

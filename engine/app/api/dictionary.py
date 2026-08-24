@@ -1,4 +1,7 @@
-"""F-101/F-106 사전 API. 화면(UI)은 이 엔드포인트만 호출한다."""
+"""F-101/F-106 사전(용어=복합 업무용어) API. 화면(UI)은 이 엔드포인트만 호출한다.
+
+단어(word) 등록/조회는 app/api/words.py로 분리되어 있다 (tb_words 참고).
+"""
 
 import sqlite3
 from pathlib import Path
@@ -8,11 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from app.api.deps import get_db
 from app.core.dictionary import matcher
 from app.core.dictionary.importer import parse_custom_csv, parse_standard_csv
-from app.core.dictionary.repository import count_terms, list_terms, lookup_term, replace_terms, upsert_term
-from app.core.dictionary.tokenize import split_into_word_candidates
+from app.core.dictionary.repository import count_terms, find_terms_containing, list_terms, lookup_term, replace_terms
+from app.core.dictionary.suggest_abbreviation import AbbreviationSuggestion, suggest_abbreviations
 from app.core.domains.derive import derive_domains_from_terms
 from app.core.domains.repository import replace_standard_domains
-from app.models.dictionary import DictionaryImportResult, DictionarySource, DictionaryTerm, SplitCandidate
+from app.models.dictionary import DictionaryImportResult, DictionarySource, DictionaryTerm
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -49,16 +52,6 @@ async def import_custom(file: UploadFile, conn: sqlite3.Connection = Depends(get
     return replace_terms(conn, terms, DictionarySource.CUSTOM)
 
 
-@router.post("/terms", response_model=DictionaryTerm)
-def add_term(term: DictionaryTerm, conn: sqlite3.Connection = Depends(get_db)) -> DictionaryTerm:
-    """미등록 단어를 커스텀 사전에 단건 등록/수정한다 (F-103 '자동 추천 + 사용자 확정' 보완).
-
-    표준 사전은 건드릴 수 없으므로 source는 항상 custom으로 강제한다.
-    """
-    term = term.model_copy(update={"source": DictionarySource.CUSTOM})
-    return upsert_term(conn, term)
-
-
 @router.get("/terms")
 def get_terms(
     query: str | None = None,
@@ -80,31 +73,15 @@ def get_lookup(term: str, conn: sqlite3.Connection = Depends(get_db)) -> Diction
     return result
 
 
-@router.get("/split-candidates", response_model=list[SplitCandidate])
-def get_split_candidates(text: str, conn: sqlite3.Connection = Depends(get_db)) -> list[SplitCandidate]:
-    """미등록 구간을 단어 후보로 쪼개고, 각 후보가 이미 사전에 있는지 확인한다.
+@router.get("/abbreviation-suggestions", response_model=list[AbbreviationSuggestion])
+def get_abbreviation_suggestions(word: str, conn: sqlite3.Connection = Depends(get_db)) -> list[AbbreviationSuggestion]:
+    """이 단어가 접두/접미로 들어간 기존 용어들의 약어 패턴에서 통계적으로 추천안을 뽑는다.
 
-    통짜 복합어 하나로 등록하면 재사용이 안 되므로, 이미 있는 단어는 건너뛰고
-    없는 단어만 순서대로 등록하도록 유도하는 화면(F-103 보완)의 기반 데이터다.
+    번역이나 형태소 분석이 아니라 단순 빈도 집계다 (예: "참조내용"->RFRNC_CN,
+    "참조번호"->RFRNC_NO 처럼 "참조"가 접두인 용어들의 약어 첫 토큰이 대부분 RFRNC).
     """
-    candidates: list[SplitCandidate] = []
-    for token in split_into_word_candidates(text):
-        found = lookup_term(conn, token)
-        if found:
-            candidates.append(
-                SplitCandidate(
-                    term=token,
-                    exists=True,
-                    abbreviation=found.abbreviation,
-                    data_type=found.data_type,
-                    length=found.length,
-                    precision=found.precision,
-                    scale=found.scale,
-                )
-            )
-        else:
-            candidates.append(SplitCandidate(term=token, exists=False))
-    return candidates
+    matches = find_terms_containing(conn, word)
+    return suggest_abbreviations(word, matches)
 
 
 @router.get("/segment", response_model=list[matcher.MatchedSegment])

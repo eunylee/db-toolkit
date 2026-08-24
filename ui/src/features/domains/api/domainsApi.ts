@@ -10,10 +10,10 @@ export function createDomain(draft: DomainDraft): Promise<Domain> {
   return api.post<Domain>('/domains', draft)
 }
 
-export function updateDomain(id: number, draft: DomainDraft): Promise<Domain> {
-  return api.put<Domain>(`/domains/${id}`, draft)
+export function updateDomain(name: string, draft: DomainDraft): Promise<Domain> {
+  return api.put<Domain>(`/domains/${encodeURIComponent(name)}`, draft)
 }
 
-export function deleteDomain(id: number): Promise<void> {
-  return api.delete<void>(`/domains/${id}`)
+export function deleteDomain(name: string): Promise<void> {
+  return api.delete<void>(`/domains/${encodeURIComponent(name)}`)
 }

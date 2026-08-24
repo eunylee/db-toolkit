@@ -4,6 +4,7 @@ export function createEmptyColumn(): ColumnDraft {
   return {
     logicalName: '',
     physicalName: '',
+    domainName: '',
     dataType: 'UNKNOWN',
     length: null,
     precision: null,
@@ -25,6 +26,7 @@ export function applySuggestion(column: ColumnDraft, suggestion: ColumnSuggestio
     physicalName: suggestion.fully_matched
       ? (suggestion.physical_name_suggestion ?? column.physicalName)
       : column.physicalName,
+    domainName: suggestion.domain_name,
     dataType: suggestion.data_type,
     length: suggestion.length,
     precision: suggestion.precision,

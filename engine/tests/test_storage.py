@@ -1,15 +1,16 @@
 from app.storage import db, yaml_store
 
 
-def test_init_db_creates_dictionary_terms_table(tmp_path):
+def test_init_db_creates_expected_tables(tmp_path):
     conn = db.get_connection(tmp_path / "test.db")
     db.init_db(conn)
 
-    tables = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='dictionary_terms'"
-    ).fetchall()
+    tables = {
+        row["name"]
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    }
 
-    assert len(tables) == 1
+    assert {"tb_terms", "tb_words", "tb_domains"} <= tables
     conn.close()
 
 
@@ -18,11 +19,11 @@ def test_init_db_is_idempotent(tmp_path):
     db.init_db(conn)
     db.init_db(conn)  # 재실행해도 에러 없어야 함
 
-    conn.execute("INSERT INTO dictionary_terms (term, abbreviation, source) VALUES ('x', 'X', 'standard')")
+    conn.execute("INSERT INTO tb_terms (term_nm, abbreviation_cd, source_cd) VALUES ('x', 'X', 'standard')")
     conn.commit()
-    row = conn.execute("SELECT term FROM dictionary_terms").fetchone()
+    row = conn.execute("SELECT term_nm FROM tb_terms").fetchone()
 
-    assert row["term"] == "x"
+    assert row["term_nm"] == "x"
     conn.close()
 
 

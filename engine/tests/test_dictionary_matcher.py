@@ -1,5 +1,7 @@
 from app.core.dictionary import matcher, repository
+from app.core.words import repository as words_repository
 from app.models.dictionary import DictionaryDataType, DictionarySource, DictionaryTerm
+from app.models.words import Word
 from app.storage.db import get_connection, init_db
 
 
@@ -70,3 +72,29 @@ def test_segment_empty_string_returns_no_segments(tmp_path):
     index = matcher.build_term_index(conn)
 
     assert matcher.segment("", index) == []
+
+
+def test_segment_combines_words_and_terms(tmp_path):
+    """단어(tb_words)와 용어(tb_terms)가 하나의 인덱스로 합쳐져 조회된다."""
+    conn = _seeded_conn(tmp_path)
+    words_repository.create_word(conn, Word(word="VIP", abbreviation="VIP", data_type=DictionaryDataType.VARCHAR))
+    index = matcher.build_term_index(conn)
+
+    segments = matcher.segment("VIP고객", index)
+
+    assert [(s.text, s.matched, s.term.abbreviation) for s in segments] == [
+        ("VIP", True, "VIP"),
+        ("고객", True, "CUST"),
+    ]
+
+
+def test_segment_prefers_longer_term_over_shorter_word_at_same_source(tmp_path):
+    """같은 source 안에서 완성된 용어(더 긴 문자열)가 단어 분해보다 우선한다."""
+    conn = _seeded_conn(tmp_path)
+    words_repository.create_word(conn, Word(word="등록", abbreviation="REG", data_type=DictionaryDataType.VARCHAR))
+    index = matcher.build_term_index(conn)
+
+    segments = matcher.segment("등록번호", index)
+
+    # '등록'+'번호' 개별 매칭이 아니라 완성된 용어 '등록번호' 통짜 매칭이 우선
+    assert [(s.text, s.term.abbreviation) for s in segments] == [("등록번호", "REG_NO")]

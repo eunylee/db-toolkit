@@ -20,6 +20,7 @@ describe('applySuggestion', () => {
       physical_name_suggestion: 'CUST_NM',
       fully_matched: true,
       segments: [{ text: '고객명', matched: true, term: null }],
+      domain_name: '명V100',
       data_type: 'VARCHAR',
       length: 100,
       precision: null,
@@ -29,6 +30,7 @@ describe('applySuggestion', () => {
     const result = applySuggestion(column, suggestion)
 
     expect(result.physicalName).toBe('CUST_NM')
+    expect(result.domainName).toBe('명V100')
     expect(result.dataType).toBe('VARCHAR')
     expect(result.length).toBe(100)
     expect(result.unmatchedSegments).toEqual([])
@@ -44,6 +46,7 @@ describe('applySuggestion', () => {
         { text: 'VIP', matched: false, term: null },
         { text: '고객명', matched: true, term: null },
       ],
+      domain_name: '명V100',
       data_type: 'VARCHAR',
       length: 100,
       precision: null,

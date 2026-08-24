@@ -18,6 +18,7 @@ export interface ColumnSuggestion {
   physical_name_suggestion: string | null
   fully_matched: boolean
   segments: MatchedSegment[]
+  domain_name: string
   data_type: DataType
   length: number | null
   precision: number | null
@@ -27,6 +28,7 @@ export interface ColumnSuggestion {
 export interface ColumnDraft {
   logicalName: string
   physicalName: string
+  domainName: string
   dataType: DataType
   length: number | null
   precision: number | null

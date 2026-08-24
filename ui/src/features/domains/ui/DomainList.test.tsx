@@ -5,7 +5,6 @@ import { DomainList } from './DomainList'
 import type { Domain } from '../model/types'
 
 const STANDARD: Domain = {
-  id: 1,
   name: '명V100',
   data_type: 'VARCHAR',
   length: 100,
@@ -16,7 +15,6 @@ const STANDARD: Domain = {
 }
 
 const CUSTOM: Domain = {
-  id: 2,
   name: '이메일주소',
   data_type: 'VARCHAR',
   length: 255,

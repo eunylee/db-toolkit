@@ -46,16 +46,16 @@ def test_search_domains_by_query(client):
 
 
 def test_update_domain(client):
-    created = client.post("/domains", json=_payload(length=255)).json()
+    client.post("/domains", json=_payload(length=255))
 
-    resp = client.put(f"/domains/{created['id']}", json=_payload(length=320))
+    resp = client.put("/domains/이메일주소", json=_payload(length=320))
 
     assert resp.status_code == 200
     assert resp.json()["length"] == 320
 
 
 def test_update_missing_domain_returns_404(client):
-    resp = client.put("/domains/999", json=_payload())
+    resp = client.put("/domains/없는도메인", json=_payload(name="없는도메인"))
     assert resp.status_code == 404
 
 
@@ -64,15 +64,15 @@ def test_update_standard_domain_returns_400(client):
     standard_domain = client.get("/domains").json()[0]
     assert standard_domain["source"] == "standard"
 
-    resp = client.put(f"/domains/{standard_domain['id']}", json=_payload())
+    resp = client.put(f"/domains/{standard_domain['name']}", json=_payload(name=standard_domain["name"]))
 
     assert resp.status_code == 400
 
 
 def test_delete_domain(client):
-    created = client.post("/domains", json=_payload()).json()
+    client.post("/domains", json=_payload())
 
-    resp = client.delete(f"/domains/{created['id']}")
+    resp = client.delete("/domains/이메일주소")
 
     assert resp.status_code == 204
     assert client.get("/domains").json() == []
@@ -82,7 +82,7 @@ def test_delete_standard_domain_returns_400(client):
     client.post("/dictionary/import/standard")
     standard_domain = client.get("/domains").json()[0]
 
-    resp = client.delete(f"/domains/{standard_domain['id']}")
+    resp = client.delete(f"/domains/{standard_domain['name']}")
 
     assert resp.status_code == 400
 

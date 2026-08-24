@@ -62,11 +62,11 @@ def test_usage_count_reflects_matching_dictionary_terms(tmp_path):
     conn = _conn(tmp_path)
     repository.create_domain(conn, _domain(name="명V100"))
     conn.execute(
-        "INSERT INTO dictionary_terms (term, abbreviation, domain_code, source) VALUES (?, ?, ?, 'custom')",
+        "INSERT INTO tb_terms (term_nm, abbreviation_cd, domain_cd, source_cd) VALUES (?, ?, ?, 'custom')",
         ("고객명", "CUST_NM", "명V100"),
     )
     conn.execute(
-        "INSERT INTO dictionary_terms (term, abbreviation, domain_code, source) VALUES (?, ?, ?, 'custom')",
+        "INSERT INTO tb_terms (term_nm, abbreviation_cd, domain_cd, source_cd) VALUES (?, ?, ?, 'custom')",
         ("상품명", "PROD_NM", "명V100"),
     )
     conn.commit()
@@ -78,9 +78,9 @@ def test_usage_count_reflects_matching_dictionary_terms(tmp_path):
 
 def test_update_custom_domain(tmp_path):
     conn = _conn(tmp_path)
-    created = repository.create_domain(conn, _domain(length=255))
+    repository.create_domain(conn, _domain(length=255))
 
-    updated = repository.update_domain(conn, created.id, _domain(name="이메일주소", length=320))
+    updated = repository.update_domain(conn, "이메일주소", _domain(name="이메일주소", length=320))
 
     assert updated.length == 320
 
@@ -88,24 +88,23 @@ def test_update_custom_domain(tmp_path):
 def test_update_standard_domain_raises(tmp_path):
     conn = _conn(tmp_path)
     repository.replace_standard_domains(conn, [Domain(name="명V100", data_type=DictionaryDataType.VARCHAR, source=DictionarySource.STANDARD)])
-    standard_domain = repository.list_domains(conn)[0]
 
     with pytest.raises(repository.StandardDomainImmutableError):
-        repository.update_domain(conn, standard_domain.id, _domain())
+        repository.update_domain(conn, "명V100", _domain())
 
 
 def test_update_missing_domain_raises_value_error(tmp_path):
     conn = _conn(tmp_path)
 
     with pytest.raises(ValueError):
-        repository.update_domain(conn, 999, _domain())
+        repository.update_domain(conn, "없는도메인", _domain())
 
 
 def test_delete_custom_domain(tmp_path):
     conn = _conn(tmp_path)
-    created = repository.create_domain(conn, _domain())
+    repository.create_domain(conn, _domain())
 
-    repository.delete_domain(conn, created.id)
+    repository.delete_domain(conn, "이메일주소")
 
     assert repository.list_domains(conn) == []
 
@@ -113,13 +112,12 @@ def test_delete_custom_domain(tmp_path):
 def test_delete_standard_domain_raises(tmp_path):
     conn = _conn(tmp_path)
     repository.replace_standard_domains(conn, [Domain(name="명V100", data_type=DictionaryDataType.VARCHAR, source=DictionarySource.STANDARD)])
-    standard_domain = repository.list_domains(conn)[0]
 
     with pytest.raises(repository.StandardDomainImmutableError):
-        repository.delete_domain(conn, standard_domain.id)
+        repository.delete_domain(conn, "명V100")
 
 
 def test_delete_missing_domain_is_noop(tmp_path):
     conn = _conn(tmp_path)
 
-    repository.delete_domain(conn, 999)
+    repository.delete_domain(conn, "없는도메인")

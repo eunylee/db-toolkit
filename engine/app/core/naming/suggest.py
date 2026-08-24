@@ -34,6 +34,7 @@ def suggest_column(logical_name: str, index: dict[str, DictionaryTerm]) -> Colum
 
     return ColumnSuggestion(
         **name_suggestion.model_dump(),
+        domain_name=term.domain_code if term else "",
         data_type=term.data_type if term else DictionaryDataType.UNKNOWN,
         length=term.length if term else None,
         precision=term.precision if term else None,

@@ -2,6 +2,15 @@
 
 SQLite는 사전 등 로컬 조회용 캐시/인덱스로 사용한다 (재생성 가능, git 비대상).
 버전 관리 대상인 설계 모델의 원본은 yaml_store가 다루는 YAML 파일이다.
+
+테이블/컬럼 명명 규칙: 우리 서비스가 사용자에게 강제하는 "단어+단어+...+도메인" 규칙을
+우리 자신의 스키마에도 그대로 적용한다. 테이블명은 tb_ 접두사, 컬럼명은 도메인 접미사
+(_nm=명, _cd=코드/enum, _no=번호·길이, _cn=내용) 규칙을 따른다. 단일 단어 컬럼명
+(name, source, word 등)은 예약어 충돌 및 확장성 문제가 있어 지양한다.
+
+PK는 무조건 surrogate AUTOINCREMENT를 쓰지 않는다. tb_words/tb_terms/tb_domains는
+전부 (이름, source_cd) 조합이 이미 UNIQUE라 그 자체가 자연키이므로, 별도 대리키 없이
+복합 PK로 바로 쓴다.
 """
 
 import sqlite3
@@ -9,38 +18,52 @@ from pathlib import Path
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "runtime" / "app.db"
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS dictionary_terms (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    term TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    abbreviation TEXT NOT NULL,
-    domain_code TEXT NOT NULL DEFAULT '',
-    domain_class TEXT NOT NULL DEFAULT '',
-    data_type TEXT NOT NULL DEFAULT 'UNKNOWN',
-    length INTEGER,
-    precision INTEGER,
-    scale INTEGER,
-    storage_format TEXT NOT NULL DEFAULT '',
-    allowed_values TEXT NOT NULL DEFAULT '',
-    synonyms TEXT NOT NULL DEFAULT '[]',
-    source TEXT NOT NULL CHECK (source IN ('standard', 'custom')),
-    UNIQUE(term, source)
-);
-CREATE INDEX IF NOT EXISTS idx_dictionary_terms_term ON dictionary_terms(term);
-CREATE INDEX IF NOT EXISTS idx_dictionary_terms_source ON dictionary_terms(source);
+_DATA_TYPE_CHECK = "CHECK (data_type_cd IN ('VARCHAR', 'CHAR', 'NUMBER', 'DATE', 'UNKNOWN'))"
+_SOURCE_CHECK = "CHECK (source_cd IN ('standard', 'custom'))"
 
-CREATE TABLE IF NOT EXISTS domains (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    data_type TEXT NOT NULL,
-    length INTEGER,
-    precision INTEGER,
-    scale INTEGER,
-    source TEXT NOT NULL CHECK (source IN ('standard', 'custom')),
-    UNIQUE(name, source)
+SCHEMA = f"""
+CREATE TABLE IF NOT EXISTS tb_terms (
+    term_nm TEXT NOT NULL,
+    term_cn TEXT NOT NULL DEFAULT '',
+    abbreviation_cd TEXT NOT NULL,
+    domain_cd TEXT NOT NULL DEFAULT '',
+    domain_class_nm TEXT NOT NULL DEFAULT '',
+    data_type_cd TEXT NOT NULL DEFAULT 'UNKNOWN' {_DATA_TYPE_CHECK},
+    length_no INTEGER,
+    precision_no INTEGER,
+    scale_no INTEGER,
+    storage_format_cn TEXT NOT NULL DEFAULT '',
+    allowed_value_cn TEXT NOT NULL DEFAULT '',
+    synonym_list_cn TEXT NOT NULL DEFAULT '[]',
+    source_cd TEXT NOT NULL {_SOURCE_CHECK},
+    PRIMARY KEY (term_nm, source_cd)
 );
-CREATE INDEX IF NOT EXISTS idx_domains_name ON domains(name);
+CREATE INDEX IF NOT EXISTS idx_tb_terms_term_nm ON tb_terms(term_nm);
+CREATE INDEX IF NOT EXISTS idx_tb_terms_source_cd ON tb_terms(source_cd);
+
+CREATE TABLE IF NOT EXISTS tb_words (
+    word_nm TEXT NOT NULL,
+    abbreviation_cd TEXT NOT NULL,
+    domain_word_yn TEXT NOT NULL DEFAULT 'N' CHECK (domain_word_yn IN ('Y', 'N')),
+    domain_nm TEXT NOT NULL DEFAULT '',
+    data_type_cd TEXT NOT NULL DEFAULT 'UNKNOWN' {_DATA_TYPE_CHECK},
+    length_no INTEGER,
+    precision_no INTEGER,
+    scale_no INTEGER,
+    source_cd TEXT NOT NULL {_SOURCE_CHECK},
+    PRIMARY KEY (word_nm, source_cd)
+);
+CREATE INDEX IF NOT EXISTS idx_tb_words_word_nm ON tb_words(word_nm);
+
+CREATE TABLE IF NOT EXISTS tb_domains (
+    domain_nm TEXT NOT NULL,
+    data_type_cd TEXT NOT NULL {_DATA_TYPE_CHECK},
+    length_no INTEGER,
+    precision_no INTEGER,
+    scale_no INTEGER,
+    source_cd TEXT NOT NULL {_SOURCE_CHECK},
+    PRIMARY KEY (domain_nm, source_cd)
+);
 """
 
 

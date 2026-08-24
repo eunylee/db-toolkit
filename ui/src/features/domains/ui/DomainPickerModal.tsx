@@ -35,7 +35,7 @@ export function DomainPickerModal({ onSelect, onClose }: Props) {
         <div className="domain-picker__header">
           <h3>도메인 선택</h3>
           <button aria-label="닫기" onClick={onClose}>
-            ×
+            × 닫기
           </button>
         </div>
         <input placeholder="도메인 검색 (예: 명V100, 이메일)" value={query} onChange={(e) => setQuery(e.target.value)} />

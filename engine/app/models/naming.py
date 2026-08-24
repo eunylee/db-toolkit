@@ -12,6 +12,7 @@ class NameSuggestion(BaseModel):
 
 
 class ColumnSuggestion(NameSuggestion):
+    domain_name: str = ""
     data_type: DictionaryDataType = DictionaryDataType.UNKNOWN
     length: int | None = None
     precision: int | None = None

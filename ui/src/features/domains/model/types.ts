@@ -1,7 +1,6 @@
 export type DataType = 'VARCHAR' | 'CHAR' | 'NUMBER' | 'DATE' | 'UNKNOWN'
 
 export interface Domain {
-  id: number | null
   name: string
   data_type: DataType
   length: number | null

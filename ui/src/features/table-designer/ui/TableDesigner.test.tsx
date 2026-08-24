@@ -33,6 +33,7 @@ describe('TableDesigner', () => {
         physical_name_suggestion: 'CUST_NM',
         fully_matched: true,
         segments: [{ text: '고객명', matched: true, term: null }],
+        domain_name: '명V100',
         data_type: 'VARCHAR',
         length: 100,
         precision: null,
@@ -46,7 +47,7 @@ describe('TableDesigner', () => {
     await user.click(screen.getByText('물리명 제안 적용'))
 
     await waitFor(() => expect(screen.getByLabelText('physical-name-0')).toHaveValue('CUST_NM'))
-    expect(screen.getByText('VARCHAR(100)')).toBeInTheDocument()
+    expect(screen.getByText('명V100 · VARCHAR(100)')).toBeInTheDocument()
   })
 
   it('shows unmatched segments as a warning without inventing a physical name', async () => {
@@ -59,6 +60,7 @@ describe('TableDesigner', () => {
           { text: 'VIP', matched: false, term: null },
           { text: '고객명', matched: true, term: null },
         ],
+        domain_name: '명V100',
         data_type: 'VARCHAR',
         length: 100,
         precision: null,
@@ -110,7 +112,6 @@ describe('TableDesigner', () => {
   it('opens the domain picker and applies the selected domain to the column', async () => {
     vi.spyOn(domainsApi, 'listDomains').mockResolvedValue([
       {
-        id: 1,
         name: '명V100',
         data_type: 'VARCHAR',
         length: 100,
@@ -128,7 +129,7 @@ describe('TableDesigner', () => {
     await screen.findByRole('dialog', { name: '도메인 선택' })
     await user.click(screen.getByText('선택'))
 
-    expect(screen.getByText('VARCHAR(100)')).toBeInTheDocument()
+    expect(screen.getByText('명V100 · VARCHAR(100)')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -143,6 +144,7 @@ describe('TableDesigner', () => {
             { text: 'VIP', matched: false, term: null },
             { text: '고객명', matched: true, term: null },
           ],
+          domain_name: '',
           data_type: 'VARCHAR',
           length: 100,
           precision: null,
@@ -158,6 +160,7 @@ describe('TableDesigner', () => {
             { text: 'VIP', matched: true, term: null },
             { text: '고객명', matched: true, term: null },
           ],
+          domain_name: '명V100',
           data_type: 'VARCHAR',
           length: 100,
           precision: null,
@@ -166,7 +169,6 @@ describe('TableDesigner', () => {
       ])
     vi.spyOn(domainsApi, 'listDomains').mockResolvedValue([
       {
-        id: 1,
         name: '명V100',
         data_type: 'VARCHAR',
         length: 100,
@@ -177,11 +179,12 @@ describe('TableDesigner', () => {
       },
     ])
     vi.spyOn(dictionaryApi, 'getSplitCandidates').mockResolvedValue([
-      { term: 'VIP', exists: false, abbreviation: null, data_type: null, length: null, precision: null, scale: null },
+      { term: 'VIP', exists: false, is_domain_word: false, abbreviation: null, data_type: null, length: null, precision: null, scale: null },
     ])
     const addTermSpy = vi.spyOn(dictionaryApi, 'addTerm').mockResolvedValue({
       term: 'VIP',
       abbreviation: 'VIP',
+      is_domain_word: true,
       data_type: 'VARCHAR',
       length: 100,
       precision: null,
@@ -197,6 +200,7 @@ describe('TableDesigner', () => {
     await user.click(screen.getByText('사전에 추가'))
     await screen.findByRole('dialog', { name: '사전에 추가' })
     await user.type(screen.getByLabelText('new-term-abbreviation-0'), 'VIP')
+    await user.click(screen.getByLabelText('is-domain-word-0'))
     await user.click(screen.getByText('도메인 선택'))
     await screen.findByRole('dialog', { name: '도메인 선택' })
     await user.click(screen.getByText('선택'))

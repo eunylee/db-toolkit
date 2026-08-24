@@ -21,7 +21,7 @@ export function DomainList({ domains, onSelect, onEdit, onDelete }: Props) {
       </thead>
       <tbody>
         {domains.map((d) => (
-          <tr key={`${d.source}-${d.id ?? d.name}`}>
+          <tr key={`${d.source}-${d.name}`}>
             <td>{d.name}</td>
             <td>{formatDomainType(d)}</td>
             <td>{d.source === 'standard' ? '표준' : '커스텀'}</td>

@@ -6,7 +6,6 @@ import * as api from '../api/domainsApi'
 import type { Domain } from '../model/types'
 
 const CUSTOM: Domain = {
-  id: 2,
   name: '이메일주소',
   data_type: 'VARCHAR',
   length: 255,
@@ -46,7 +45,7 @@ describe('DomainManagerPage', () => {
     await user.click(screen.getByText('수정'))
     await user.click(screen.getByText('수정 저장'))
 
-    await waitFor(() => expect(updateSpy).toHaveBeenCalledWith(2, expect.objectContaining({ name: '이메일주소' })))
+    await waitFor(() => expect(updateSpy).toHaveBeenCalledWith('이메일주소', expect.objectContaining({ name: '이메일주소' })))
   })
 
   it('deletes a custom domain', async () => {
@@ -59,7 +58,7 @@ describe('DomainManagerPage', () => {
     await screen.findByText('이메일주소')
     await user.click(screen.getByText('삭제'))
 
-    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith(2))
+    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith('이메일주소'))
   })
 
   it('shows an error message when deleting a standard domain fails', async () => {

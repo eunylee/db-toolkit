@@ -6,7 +6,6 @@ import * as api from '../api/domainsApi'
 import type { Domain } from '../model/types'
 
 const DOMAIN: Domain = {
-  id: 1,
   name: '명V100',
   data_type: 'VARCHAR',
   length: 100,
@@ -35,7 +34,7 @@ describe('DomainPickerModal', () => {
 
   it('creates a new domain and selects it immediately', async () => {
     vi.spyOn(api, 'listDomains').mockResolvedValue([])
-    const created: Domain = { ...DOMAIN, id: 2, name: '이메일주소', source: 'custom', usage_count: 0 }
+    const created: Domain = { ...DOMAIN, name: '이메일주소', source: 'custom', usage_count: 0 }
     vi.spyOn(api, 'createDomain').mockResolvedValue(created)
     const onSelect = vi.fn()
 

@@ -4,7 +4,7 @@ from app.models.dictionary import DictionaryDataType, DictionaryTerm
 INDEX = {
     "고객": DictionaryTerm(term="고객", abbreviation="CUST", data_type=DictionaryDataType.VARCHAR, length=50),
     "등록번호": DictionaryTerm(
-        term="등록번호", abbreviation="REG_NO", data_type=DictionaryDataType.VARCHAR, length=50
+        term="등록번호", abbreviation="REG_NO", data_type=DictionaryDataType.VARCHAR, length=50, domain_code="번호V50"
     ),
     "주문일자": DictionaryTerm(
         term="주문일자", abbreviation="ORD_DT", data_type=DictionaryDataType.DATE, length=8
@@ -55,3 +55,15 @@ def test_suggest_column_fully_matched_carries_length_from_last_segment():
     assert result.physical_name_suggestion == "CUST_REG_NO"
     assert result.data_type == DictionaryDataType.VARCHAR
     assert result.length == 50
+
+
+def test_suggest_column_carries_domain_name_from_last_matched_segment():
+    result = suggest_column("고객등록번호", INDEX)
+
+    assert result.domain_name == "번호V50"
+
+
+def test_suggest_column_no_matched_segment_has_empty_domain_name():
+    result = suggest_column("완전히모르는단어", INDEX)
+
+    assert result.domain_name == ""
